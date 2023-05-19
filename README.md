@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @tabee
-- 👀 I’m interested in AI, open data
-- 🌱 I’m currently learning python and node
-- 💞️ I’m looking to 2023
+- 👀 I’m interested in AI, open data, 🦜️🔗 LangChain, 🤗 HuggingChat
+- 🌱 I’m currently work with 🐍 python
+- 💞️ I’m looking to 2024
 - 📫 How to reach me bee.mario@gmail.com
 
 <!---
