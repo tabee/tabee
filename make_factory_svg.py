@@ -22,23 +22,30 @@ FS = 12.0         # font size
 FONT = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', monospace"
 
 
-def gear(W=58, H=29):
+TEETH = 8
+SPOKES = 4          # 4 spokes + 8 teeth share a 90 deg period -> seamless loop
+FRAMES = 12         # frames per 90 deg of rotation
+FRAME_DUR = 0.3     # seconds per frame
+
+
+def gear(phase=0.0, W=58, H=29):
+    """Render one ASCII gear frame; `phase` rotates teeth and spokes (radians)."""
     aspect = 2.0
     cx, cy = W / 2, H / 2
-    r_out, r_body, r_hub, r_hole, teeth = 14.4, 11.0, 5.0, 2.3, 8
+    r_out, r_body, r_hub, r_hole, teeth = 14.4, 11.0, 5.0, 2.3, TEETH
 
     def inside(xf, yf):
         dx, dy = (xf - cx) / aspect, yf - cy
-        r, a = math.hypot(dx, dy), math.atan2(dy, dx)
-        ins = r < r_body or (r < r_out and math.cos(a * teeth + math.pi) > 0.1)
+        r, a = math.hypot(dx, dy), math.atan2(dy, dx) - phase
+        ins = r < r_body or (r < r_out and math.cos(a * teeth + math.pi) > 0.0)
         if not ins or r < r_hole:
             return False
         if r_hub < r < r_body - 1.7:
-            for k in range(6):
-                th = k * math.pi / 3 + math.pi / 2
+            for k in range(SPOKES):
+                th = k * 2 * math.pi / SPOKES + math.pi / 2 + phase
                 d = abs(-math.sin(th) * dx + math.cos(th) * dy)
                 along = math.cos(th) * dx + math.sin(th) * dy
-                if d < 0.95 and along > 0:
+                if d < 1.15 and along > 0:
                     break
             else:
                 return False
@@ -51,9 +58,11 @@ def gear(W=58, H=29):
         line = ""
         for x in range(W):
             c = sum(inside(x + (i + .5) / S, y + (j + .5) / S) for i in range(S) for j in range(S))
-            line += ramp[min(9, int(c / (S * S) * 9 + .5))]
+            f = c / (S * S)
+            # cells with little coverage stay empty -> less "dust" on rotated frames
+            line += " " if f < 0.3 else ramp[min(9, int((f - 0.3) / 0.7 * 8 + 1.5))]
         rows.append(line)
-    return rows, ramp
+    return rows
 
 
 SLOGAN_1 = r"""
@@ -124,7 +133,10 @@ def belt_svg(x, y, cols):
 
 
 def main():
-    g, ramp = gear()
+    step = (math.pi / 2) / FRAMES
+    frames = [gear(phase=k * step) for k in range(FRAMES)]
+    ramp = " .:-=+*#%@"
+    g = frames[0]
     GW, GH = len(g[0]), len(g)
     RW = 51                                 # right column width (cols)
     PAD = 2
@@ -142,8 +154,16 @@ def main():
     ry = top + ((GH - right_rows) // 2) * LH
 
     body = []
-    for i, line in enumerate(g):
-        body.append(gear_text(gx, top + i * LH, line, ramp))
+    total = FRAMES * FRAME_DUR
+    for k, frame in enumerate(frames):
+        vis = ";".join("1" if i == k else "0" for i in range(FRAMES))
+        keys = ";".join(f"{i / FRAMES:.4f}" for i in range(FRAMES))
+        body.append(f'<g opacity="{1 if k == 0 else 0}">'
+                    f'<animate attributeName="opacity" values="{vis}" keyTimes="{keys}" '
+                    f'calcMode="discrete" dur="{total}s" repeatCount="indefinite"/>')
+        for i, line in enumerate(frame):
+            body.append(gear_text(gx, top + i * LH, line, ramp))
+        body.append('</g>')
 
     y = ry
     for line in SLOGAN_1:
